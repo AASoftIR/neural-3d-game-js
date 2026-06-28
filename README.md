@@ -14,8 +14,6 @@ You play as a **human courier riding a hoverboard through a living AI city**. Th
 
 ## Live Demo
 
-After enabling GitHub Pages, the game should be available at:
-
 ```txt
 https://aasoftir.github.io/neural-3d-game-js/
 ```
