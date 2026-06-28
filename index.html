@@ -1,0 +1,1835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>NEURAL COURIER 3D // WebGL AI City Game</title>
+<style>
+  :root{
+    --ink:#eff7ff;
+    --muted:#a8b8e8;
+    --cyan:#5bf8ff;
+    --pink:#ff4fd8;
+    --gold:#ffe66b;
+    --green:#67ffb4;
+    --red:#ff3668;
+    --panel:rgba(8,12,30,.58);
+  }
+  *{box-sizing:border-box;user-select:none}
+  html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:
+      radial-gradient(circle at 18% 18%,rgba(91,248,255,.16),transparent 28%),
+      radial-gradient(circle at 82% 8%,rgba(255,79,216,.16),transparent 34%),
+      radial-gradient(circle at 50% 100%,rgba(255,230,107,.10),transparent 36%),
+      linear-gradient(180deg,#02020b,#07071c 62%,#020109);
+    color:var(--ink);
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  #app{
+    position:fixed;
+    inset:0;
+    display:grid;
+    place-items:center;
+    padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));
+  }
+  #shell{
+    position:relative;
+    width:min(1220px,100vw);
+    height:min(800px,100vh);
+    overflow:hidden;
+    border-radius:30px;
+    border:1px solid rgba(255,255,255,.14);
+    background:#02020b;
+    box-shadow:
+      0 28px 100px rgba(0,0,0,.66),
+      inset 0 0 90px rgba(91,248,255,.08),
+      inset 0 0 150px rgba(255,79,216,.07);
+    isolation:isolate;
+  }
+  #shell::before{
+    content:"";
+    position:absolute;
+    inset:-40%;
+    background:conic-gradient(from 130deg,transparent,rgba(91,248,255,.08),transparent,rgba(255,79,216,.07),transparent);
+    animation:spin 34s linear infinite;
+    z-index:-2;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #game{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    display:block;
+    cursor:crosshair;
+    touch-action:none;
+    z-index:1;
+  }
+  #cockpit,#svgFx{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+  }
+  #cockpit{z-index:3;opacity:.9;mix-blend-mode:screen}
+  #svgFx{z-index:4}
+  #hud{
+    position:absolute;
+    inset:16px 16px auto 16px;
+    z-index:6;
+    display:grid;
+    grid-template-columns:1fr auto 1fr;
+    gap:12px;
+    pointer-events:none;
+  }
+  .card{
+    border:1px solid rgba(255,255,255,.14);
+    background:var(--panel);
+    backdrop-filter:blur(18px);
+    border-radius:22px;
+    box-shadow:0 15px 38px rgba(0,0,0,.30),inset 0 1px rgba(255,255,255,.10);
+    pointer-events:auto;
+  }
+  #leftHud,#rightHud{padding:13px 15px;min-width:250px}
+  #rightHud{justify-self:end}
+  #centerHud{min-width:min(470px,42vw);padding:11px 18px;text-align:center}
+  .label{
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.20em;
+    font-weight:900;
+    font-size:11px;
+  }
+  #score{
+    font-size:clamp(34px,5vw,58px);
+    font-weight:1000;
+    letter-spacing:-.07em;
+    line-height:.95;
+    text-shadow:0 0 18px rgba(91,248,255,.78);
+  }
+  #gameTitle{
+    margin:0;
+    font-size:clamp(16px,2.6vw,30px);
+    letter-spacing:.16em;
+    font-weight:1000;
+  }
+  #mission{
+    margin:4px 0 0;
+    color:#c1ccff;
+    font-size:12px;
+  }
+  .bars{
+    display:grid;
+    gap:8px;
+    margin-top:8px;
+  }
+  .bar{
+    height:10px;
+    border-radius:999px;
+    background:rgba(255,255,255,.085);
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,.09);
+  }
+  .bar i{
+    display:block;
+    height:100%;
+    width:50%;
+    border-radius:999px;
+    background:linear-gradient(90deg,var(--cyan),#fff,var(--pink));
+    box-shadow:0 0 14px rgba(91,248,255,.70);
+    transition:width .08s linear,filter .12s ease;
+  }
+  .bar.hot i{filter:hue-rotate(125deg) saturate(2.2)}
+  #lives{
+    margin-top:10px;
+    display:flex;
+    gap:8px;
+  }
+  .life{
+    width:18px;height:18px;
+    transform:rotate(45deg);
+    border-radius:5px;
+    background:linear-gradient(135deg,var(--pink),var(--cyan));
+    box-shadow:0 0 13px rgba(255,79,216,.72);
+    opacity:.25;
+  }
+  .life.on{opacity:1}
+  #combo{
+    position:absolute;
+    left:50%;
+    top:29%;
+    transform:translate(-50%,-50%) scale(.4);
+    opacity:0;
+    z-index:8;
+    pointer-events:none;
+    font-weight:1000;
+    font-size:clamp(35px,8vw,108px);
+    letter-spacing:-.08em;
+    text-align:center;
+    text-shadow:
+      0 0 18px #fff,
+      0 0 44px rgba(91,248,255,.75),
+      0 0 84px rgba(255,79,216,.52);
+  }
+  #combo.show{animation:pop .78s cubic-bezier(.2,1.55,.27,1) forwards}
+  @keyframes pop{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.35) rotate(-6deg);filter:blur(12px)}
+    36%{opacity:1;transform:translate(-50%,-50%) scale(1.13) rotate(2deg);filter:blur(0)}
+    100%{opacity:0;transform:translate(-50%,-96%) scale(.86) rotate(0)}
+  }
+  #toast{
+    position:absolute;
+    left:50%;
+    bottom:84px;
+    transform:translateX(-50%);
+    z-index:9;
+    color:#edf8ff;
+    background:rgba(7,10,28,.64);
+    border:1px solid rgba(255,255,255,.14);
+    border-radius:999px;
+    padding:10px 16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.28);
+    backdrop-filter:blur(12px);
+    font-size:13px;
+    opacity:0;
+    transition:opacity .18s ease,transform .18s ease;
+    pointer-events:none;
+  }
+  #toast.on{opacity:1;transform:translateX(-50%) translateY(-6px)}
+  #levelCard{
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%) scale(.95);
+    z-index:12;
+    width:min(560px,calc(100vw - 32px));
+    padding:24px 26px;
+    border-radius:26px;
+    border:1px solid rgba(255,255,255,.16);
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.11),rgba(255,255,255,.04)),
+      rgba(7,10,29,.76);
+    backdrop-filter:blur(16px);
+    box-shadow:0 26px 90px rgba(0,0,0,.52),inset 0 1px rgba(255,255,255,.13);
+    text-align:center;
+    opacity:0;
+    pointer-events:none;
+    transition:.22s ease;
+  }
+  #levelCard.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  #levelCard h2{
+    margin:0 0 8px;
+    font-size:clamp(28px,5vw,54px);
+    line-height:.95;
+    letter-spacing:-.06em;
+  }
+  #levelCard p{
+    margin:0;
+    color:#cbd7ff;
+    line-height:1.5;
+  }
+  #debug{
+    position:absolute;
+    right:16px;
+    bottom:16px;
+    z-index:11;
+    display:none;
+    min-width:250px;
+    padding:11px 12px;
+    border-radius:16px;
+    border:1px solid rgba(255,255,255,.14);
+    background:rgba(0,0,0,.46);
+    backdrop-filter:blur(10px);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+    font-size:12px;
+    color:#b9faff;
+    pointer-events:none;
+    white-space:pre-line;
+  }
+  #debug.on{display:block}
+  #help{
+    position:absolute;
+    left:18px;
+    right:18px;
+    bottom:16px;
+    z-index:6;
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    color:rgba(226,238,255,.64);
+    font-size:12px;
+    pointer-events:none;
+  }
+  .kbd{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:22px;
+    height:22px;
+    padding:0 7px;
+    margin:0 2px;
+    border-radius:7px;
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.13);
+    color:#fff;
+    box-shadow:inset 0 1px rgba(255,255,255,.10);
+  }
+  #menu{
+    position:absolute;
+    inset:0;
+    z-index:20;
+    display:grid;
+    place-items:center;
+    padding:24px;
+    background:
+      radial-gradient(circle at 50% 42%,rgba(91,248,255,.17),transparent 28%),
+      radial-gradient(circle at 50% 58%,rgba(255,79,216,.12),transparent 45%),
+      rgba(3,2,10,.70);
+    backdrop-filter:blur(14px);
+  }
+  #menu.hidden{display:none}
+  .menuCard{
+    width:min(880px,calc(100vw - 24px));
+    border-radius:32px;
+    border:1px solid rgba(255,255,255,.15);
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.105),rgba(255,255,255,.035)),
+      rgba(7,10,30,.78);
+    box-shadow:0 34px 110px rgba(0,0,0,.62),inset 0 1px rgba(255,255,255,.13);
+    padding:clamp(24px,4vw,42px);
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+  }
+  .menuCard::before{
+    content:"";
+    position:absolute;
+    inset:-2px;
+    background:linear-gradient(90deg,transparent,rgba(91,248,255,.25),transparent,rgba(255,79,216,.25),transparent);
+    transform:translateX(-80%);
+    animation:shine 3.4s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes shine{0%,100%{transform:translateX(-90%)}55%{transform:translateX(90%)}}
+  .logo{
+    width:172px;
+    max-width:44vw;
+    margin:0 auto 13px;
+    filter:drop-shadow(0 0 18px rgba(91,248,255,.75)) drop-shadow(0 0 34px rgba(255,79,216,.52));
+  }
+  .menuCard h1{
+    margin:0;
+    font-size:clamp(38px,8vw,88px);
+    line-height:.86;
+    letter-spacing:-.085em;
+    font-weight:1000;
+  }
+  .tagline{
+    max-width:720px;
+    margin:18px auto 23px;
+    color:#dce7ff;
+    line-height:1.55;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:10px;
+    margin:22px auto 27px;
+  }
+  .tip{
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.055);
+    border-radius:18px;
+    padding:11px;
+    font-size:12px;
+    color:#aebceb;
+  }
+  .tip b{
+    display:block;
+    margin-bottom:3px;
+    color:#fff;
+    font-size:13px;
+  }
+  button{
+    appearance:none;
+    border:0;
+    border-radius:18px;
+    padding:14px 22px;
+    color:#06101b;
+    font-weight:1000;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    cursor:pointer;
+    background:linear-gradient(90deg,var(--cyan),#fff,var(--pink));
+    box-shadow:0 14px 36px rgba(91,248,255,.26),inset 0 1px rgba(255,255,255,.85);
+    transition:transform .14s ease,filter .14s ease;
+  }
+  button:hover{transform:translateY(-2px);filter:saturate(1.2)}
+  button:active{transform:translateY(1px)}
+  body.hit #shell{animation:shake .25s linear}
+  @keyframes shake{
+    0%,100%{transform:translate(0,0)}
+    25%{transform:translate(7px,-5px)}
+    50%{transform:translate(-6px,4px)}
+    75%{transform:translate(5px,6px)}
+  }
+  body.patch #shell{filter:saturate(1.35) contrast(1.08) hue-rotate(20deg)}
+  @media(max-width:860px){
+    #app{padding:0}
+    #shell{width:100vw;height:100vh;border-radius:0;border:0}
+    #hud{grid-template-columns:1fr 1fr;gap:8px;inset:10px}
+    #centerHud{display:none}
+    #leftHud,#rightHud{min-width:0;padding:10px 11px;border-radius:17px}
+    #rightHud{justify-self:stretch}
+    #score{font-size:34px}
+    .grid{grid-template-columns:1fr 1fr}
+    #help{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <main id="shell" aria-label="Neural Courier 3D WebGL game">
+    <canvas id="game"></canvas>
+
+    <svg id="cockpit" viewBox="0 0 1000 700" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="cockpitLine" x1="0" x2="1">
+          <stop offset="0" stop-color="#5bf8ff" stop-opacity="0"/>
+          <stop offset=".5" stop-color="#ffffff" stop-opacity=".42"/>
+          <stop offset="1" stop-color="#ff4fd8" stop-opacity="0"/>
+        </linearGradient>
+        <filter id="svgGlow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <path d="M0 700 C190 590 310 620 410 700" fill="rgba(91,248,255,.035)" stroke="url(#cockpitLine)" stroke-width="3" filter="url(#svgGlow)"/>
+      <path d="M1000 700 C810 590 690 620 590 700" fill="rgba(255,79,216,.035)" stroke="url(#cockpitLine)" stroke-width="3" filter="url(#svgGlow)"/>
+      <path d="M380 700 L452 608 L548 608 L620 700" fill="rgba(255,255,255,.025)" stroke="rgba(255,255,255,.22)" stroke-width="2"/>
+      <circle cx="500" cy="350" r="44" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="2"/>
+      <path d="M500 286 V326 M500 374 V414 M436 350 H476 M524 350 H564" stroke="rgba(255,255,255,.24)" stroke-width="2" filter="url(#svgGlow)"/>
+    </svg>
+    <svg id="svgFx" viewBox="0 0 1000 700" preserveAspectRatio="none" aria-hidden="true"></svg>
+
+    <section id="hud">
+      <div id="leftHud" class="card">
+        <div class="label">Score</div>
+        <div id="score">0</div>
+        <div class="label" id="rank">Courier Trainee</div>
+      </div>
+      <div id="centerHud" class="card">
+        <h2 id="gameTitle">NEURAL COURIER 3D</h2>
+        <p id="mission">Deliver memories through the AI city.</p>
+      </div>
+      <div id="rightHud" class="card">
+        <div class="label">Courier Systems</div>
+        <div class="bars">
+          <div class="bar" id="heatWrap" title="patch launcher heat"><i id="heatBar"></i></div>
+          <div class="bar" title="reality patch charge"><i id="chargeBar"></i></div>
+          <div class="bar" title="shield"><i id="shieldBar"></i></div>
+        </div>
+        <div id="lives"></div>
+      </div>
+    </section>
+
+    <div id="combo"></div>
+    <div id="toast"></div>
+    <div id="levelCard"><h2></h2><p></p></div>
+    <div id="debug"></div>
+
+    <div id="help">
+      <span><span class="kbd">Mouse</span>/<span class="kbd">Touch</span> steer · hold to shoot · <span class="kbd">W</span> jump · <span class="kbd">S</span> crouch</span>
+      <span><span class="kbd">Space</span>/<span class="kbd">J</span> shoot · <span class="kbd">E</span> Reality Patch · <span class="kbd">Shift</span> dash · <span class="kbd">F3</span> debug</span>
+    </div>
+
+    <section id="menu">
+      <div class="menuCard">
+        <svg class="logo" viewBox="-90 -90 180 180" aria-hidden="true">
+          <defs>
+            <linearGradient id="logoGrad" x1="0" y1="-1" x2="0" y2="1">
+              <stop offset="0%" stop-color="#fff"/>
+              <stop offset="34%" stop-color="#5bf8ff"/>
+              <stop offset="72%" stop-color="#ff4fd8"/>
+              <stop offset="100%" stop-color="#ffe66b"/>
+            </linearGradient>
+            <filter id="logoGlow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <g filter="url(#logoGlow)">
+            <polygon points="0,-76 62,-36 62,36 0,76 -62,36 -62,-36" fill="rgba(255,255,255,.035)" stroke="url(#logoGrad)" stroke-width="5"/>
+            <path d="M-68 0 H68 M0 -68 V68 M-48 -48 L48 48 M48 -48 L-48 48" stroke="rgba(255,255,255,.38)" stroke-width="2"/>
+            <path d="M0 -44 C30 -28 42 -8 38 18 C25 45 -25 45 -38 18 C-42 -8 -30 -28 0 -44Z" fill="rgba(91,248,255,.11)" stroke="#fff" stroke-width="2"/>
+            <circle cx="0" cy="0" r="11" fill="#ffe66b"/>
+          </g>
+        </svg>
+        <h1>NEURAL COURIER 3D</h1>
+        <p class="tagline">
+          A modern WebGL game: you are a human courier on a hoverboard inside a living AI city.
+          Collect memories, repair corrupted nodes, fight security drones, and defeat the Trend Hydra boss.
+          No libraries, no build step, just one powerful browser file.
+        </p>
+        <div class="grid">
+          <div class="tip"><b>Actual 3D</b>Raw WebGL primitives and camera</div>
+          <div class="tip"><b>Real Player</b>Humanoid courier with animated limbs</div>
+          <div class="tip"><b>Levels</b>Memory, repair, combat, boss</div>
+          <div class="tip"><b>Modern Idea</b>AI city delivery + repair missions</div>
+        </div>
+        <button id="startBtn">Start Courier Run</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const canvas = $("game");
+  const shell = $("shell");
+  const svgFx = $("svgFx");
+  const menu = $("menu");
+  const startBtn = $("startBtn");
+  const scoreEl = $("score");
+  const rankEl = $("rank");
+  const missionEl = $("mission");
+  const heatBar = $("heatBar");
+  const heatWrap = $("heatWrap");
+  const chargeBar = $("chargeBar");
+  const shieldBar = $("shieldBar");
+  const livesEl = $("lives");
+  const comboEl = $("combo");
+  const toastEl = $("toast");
+  const levelCard = $("levelCard");
+  const debugEl = $("debug");
+
+  const gl = canvas.getContext("webgl", { antialias: true, alpha: false, powerPreference: "high-performance" });
+  if (!gl) {
+    document.body.innerHTML = "<div style='padding:30px;color:white;font-family:sans-serif'>WebGL is not available in this browser.</div>";
+    return;
+  }
+
+  const TAU = Math.PI * 2;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+
+  function rgb(hex) {
+    hex = hex.replace("#", "");
+    return [
+      parseInt(hex.slice(0, 2), 16) / 255,
+      parseInt(hex.slice(2, 4), 16) / 255,
+      parseInt(hex.slice(4, 6), 16) / 255
+    ];
+  }
+
+  const M4 = {
+    identity() {
+      const o = new Float32Array(16);
+      o[0] = o[5] = o[10] = o[15] = 1;
+      return o;
+    },
+    multiply(a, b) {
+      const o = new Float32Array(16);
+      for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 4; col++) {
+          o[col * 4 + row] =
+            a[0 * 4 + row] * b[col * 4 + 0] +
+            a[1 * 4 + row] * b[col * 4 + 1] +
+            a[2 * 4 + row] * b[col * 4 + 2] +
+            a[3 * 4 + row] * b[col * 4 + 3];
+        }
+      }
+      return o;
+    },
+    perspective(fovy, aspect, near, far) {
+      const f = 1 / Math.tan(fovy / 2);
+      const nf = 1 / (near - far);
+      const o = new Float32Array(16);
+      o[0] = f / aspect;
+      o[5] = f;
+      o[10] = (far + near) * nf;
+      o[11] = -1;
+      o[14] = 2 * far * near * nf;
+      return o;
+    },
+    lookAt(eye, center, up) {
+      let zx = eye[0] - center[0], zy = eye[1] - center[1], zz = eye[2] - center[2];
+      let zl = Math.hypot(zx, zy, zz) || 1;
+      zx /= zl; zy /= zl; zz /= zl;
+      let xx = up[1] * zz - up[2] * zy;
+      let xy = up[2] * zx - up[0] * zz;
+      let xz = up[0] * zy - up[1] * zx;
+      let xl = Math.hypot(xx, xy, xz) || 1;
+      xx /= xl; xy /= xl; xz /= xl;
+      const yx = zy * xz - zz * xy;
+      const yy = zz * xx - zx * xz;
+      const yz = zx * xy - zy * xx;
+      const o = new Float32Array(16);
+      o[0] = xx; o[1] = yx; o[2] = zx; o[3] = 0;
+      o[4] = xy; o[5] = yy; o[6] = zy; o[7] = 0;
+      o[8] = xz; o[9] = yz; o[10] = zz; o[11] = 0;
+      o[12] = -(xx * eye[0] + xy * eye[1] + xz * eye[2]);
+      o[13] = -(yx * eye[0] + yy * eye[1] + yz * eye[2]);
+      o[14] = -(zx * eye[0] + zy * eye[1] + zz * eye[2]);
+      o[15] = 1;
+      return o;
+    },
+    translation(x, y, z) {
+      const o = M4.identity();
+      o[12] = x; o[13] = y; o[14] = z;
+      return o;
+    },
+    scale(x, y, z) {
+      const o = M4.identity();
+      o[0] = x; o[5] = y; o[10] = z;
+      return o;
+    },
+    rotX(a) {
+      const o = M4.identity(), c = Math.cos(a), s = Math.sin(a);
+      o[5] = c; o[6] = s; o[9] = -s; o[10] = c;
+      return o;
+    },
+    rotY(a) {
+      const o = M4.identity(), c = Math.cos(a), s = Math.sin(a);
+      o[0] = c; o[2] = -s; o[8] = s; o[10] = c;
+      return o;
+    },
+    rotZ(a) {
+      const o = M4.identity(), c = Math.cos(a), s = Math.sin(a);
+      o[0] = c; o[1] = s; o[4] = -s; o[5] = c;
+      return o;
+    },
+    compose(pos, rot, sc) {
+      let m = M4.translation(pos[0], pos[1], pos[2]);
+      m = M4.multiply(m, M4.rotY(rot[1] || 0));
+      m = M4.multiply(m, M4.rotX(rot[0] || 0));
+      m = M4.multiply(m, M4.rotZ(rot[2] || 0));
+      m = M4.multiply(m, M4.scale(sc[0], sc[1], sc[2]));
+      return m;
+    }
+  };
+
+  const vertexShaderSource = `
+    attribute vec3 aPos;
+    attribute vec3 aNormal;
+    uniform mat4 uMVP;
+    uniform mat4 uModel;
+    uniform vec3 uColor;
+    uniform float uPulse;
+    varying vec3 vColor;
+    varying float vDepth;
+    void main() {
+      vec3 n = normalize((uModel * vec4(aNormal, 0.0)).xyz);
+      vec3 light = normalize(vec3(-0.35, 0.85, 0.55));
+      float diff = max(dot(n, light), 0.0);
+      float rim = pow(1.0 - max(dot(n, normalize(vec3(0.0, 0.3, 1.0))), 0.0), 2.0);
+      vec4 world = uModel * vec4(aPos, 1.0);
+      gl_Position = uMVP * vec4(aPos, 1.0);
+      vColor = uColor * (0.34 + diff * 0.74 + rim * 0.28 + uPulse);
+      vDepth = clamp((world.z + 5.0) / 150.0, 0.0, 1.0);
+    }
+  `;
+  const fragmentShaderSource = `
+    precision mediump float;
+    varying vec3 vColor;
+    varying float vDepth;
+    uniform vec3 uFog;
+    void main() {
+      vec3 col = mix(vColor, uFog, vDepth * 0.36);
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `;
+
+  function compile(type, source) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, source);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  const program = gl.createProgram();
+  gl.attachShader(program, compile(gl.VERTEX_SHADER, vertexShaderSource));
+  gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragmentShaderSource));
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+  gl.useProgram(program);
+
+  const loc = {
+    pos: gl.getAttribLocation(program, "aPos"),
+    normal: gl.getAttribLocation(program, "aNormal"),
+    mvp: gl.getUniformLocation(program, "uMVP"),
+    model: gl.getUniformLocation(program, "uModel"),
+    color: gl.getUniformLocation(program, "uColor"),
+    fog: gl.getUniformLocation(program, "uFog"),
+    pulse: gl.getUniformLocation(program, "uPulse")
+  };
+
+  function createMesh(data) {
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+    return { buffer, count: data.length / 6 };
+  }
+
+  function addFace(out, verts, normal) {
+    for (const v of verts) out.push(v[0], v[1], v[2], normal[0], normal[1], normal[2]);
+  }
+
+  function cubeMesh() {
+    const o = [];
+    const p = .5;
+    addFace(o, [[-p,-p,p],[p,-p,p],[p,p,p],[-p,-p,p],[p,p,p],[-p,p,p]], [0,0,1]);
+    addFace(o, [[p,-p,-p],[-p,-p,-p],[-p,p,-p],[p,-p,-p],[-p,p,-p],[p,p,-p]], [0,0,-1]);
+    addFace(o, [[-p,p,p],[p,p,p],[p,p,-p],[-p,p,p],[p,p,-p],[-p,p,-p]], [0,1,0]);
+    addFace(o, [[-p,-p,-p],[p,-p,-p],[p,-p,p],[-p,-p,-p],[p,-p,p],[-p,-p,p]], [0,-1,0]);
+    addFace(o, [[p,-p,p],[p,-p,-p],[p,p,-p],[p,-p,p],[p,p,-p],[p,p,p]], [1,0,0]);
+    addFace(o, [[-p,-p,-p],[-p,-p,p],[-p,p,p],[-p,-p,-p],[-p,p,p],[-p,p,-p]], [-1,0,0]);
+    return o;
+  }
+
+  function pyramidMesh() {
+    const o = [];
+    const p = .5;
+    addFace(o, [[-p,-p,p],[p,-p,p],[p,-p,-p],[-p,-p,p],[p,-p,-p],[-p,-p,-p]], [0,-1,0]);
+    const faces = [
+      [[0,p*1.15,0],[-p,-p,p],[p,-p,p],[0,.7,1]],
+      [[0,p*1.15,0],[p,-p,p],[p,-p,-p],[1,.7,0]],
+      [[0,p*1.15,0],[p,-p,-p],[-p,-p,-p],[0,.7,-1]],
+      [[0,p*1.15,0],[-p,-p,-p],[-p,-p,p],[-1,.7,0]]
+    ];
+    for (const f of faces) addFace(o, [f[0], f[1], f[2]], f[3]);
+    return o;
+  }
+
+  function octMesh() {
+    const o = [];
+    const v = [[0,.62,0],[.58,0,0],[0,0,.58],[-.58,0,0],[0,0,-.58],[0,-.62,0]];
+    const f = [[0,1,2],[0,2,3],[0,3,4],[0,4,1],[5,2,1],[5,3,2],[5,4,3],[5,1,4]];
+    for (const face of f) {
+      const a = v[face[0]], b = v[face[1]], c = v[face[2]];
+      const ux = b[0]-a[0], uy = b[1]-a[1], uz = b[2]-a[2];
+      const vx = c[0]-a[0], vy = c[1]-a[1], vz = c[2]-a[2];
+      let nx = uy*vz - uz*vy, ny = uz*vx - ux*vz, nz = ux*vy - uy*vx;
+      const nl = Math.hypot(nx,ny,nz) || 1; nx/=nl; ny/=nl; nz/=nl;
+      addFace(o, [a,b,c], [nx,ny,nz]);
+    }
+    return o;
+  }
+
+  const meshes = {
+    cube: createMesh(cubeMesh()),
+    pyramid: createMesh(pyramidMesh()),
+    oct: createMesh(octMesh())
+  };
+
+  gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.CULL_FACE);
+  gl.cullFace(gl.BACK);
+
+  const levels = [
+    {
+      name: "Level 1 — Memory Market",
+      objective: "Collect 12 blue memory capsules before the city forgets them.",
+      short: "Collect memory capsules",
+      kind: "collect",
+      target: 12,
+      fog: "#0b1638",
+      clear: [0.015,0.018,0.055,1],
+      theme: ["#5bf8ff", "#ff4fd8", "#ffe66b"],
+      spawn: .72
+    },
+    {
+      name: "Level 2 — Empathy District",
+      objective: "Repair 8 corrupted green civic nodes with your patch launcher.",
+      short: "Repair corrupted nodes",
+      kind: "repair",
+      target: 8,
+      fog: "#102739",
+      clear: [0.01,0.026,0.04,1],
+      theme: ["#67ffb4", "#5bf8ff", "#ffffff"],
+      spawn: .64
+    },
+    {
+      name: "Level 3 — Firewall Festival",
+      objective: "Defeat 24 hostile moderation drones and survive the firewall parade.",
+      short: "Defeat hostile drones",
+      kind: "defeat",
+      target: 24,
+      fog: "#26102d",
+      clear: [0.036,0.012,0.038,1],
+      theme: ["#ff4fd8", "#ff3668", "#ffe66b"],
+      spawn: .54
+    },
+    {
+      name: "Level 4 — Trend Hydra",
+      objective: "Defeat the viral Trend Hydra boss without letting the city collapse.",
+      short: "Beat the Trend Hydra",
+      kind: "boss",
+      target: 1,
+      fog: "#24173c",
+      clear: [0.025,0.018,0.045,1],
+      theme: ["#ffe66b", "#ff4fd8", "#5bf8ff"],
+      spawn: .46
+    }
+  ];
+
+  const ranks = [
+    [0, "Courier Trainee"],
+    [850, "Memory Skater"],
+    [1900, "Patch Rider"],
+    [4200, "Firewall Surfer"],
+    [7600, "City Healer"],
+    [12000, "Hydra Breaker"],
+    [18000, "Neural Legend"]
+  ];
+
+  const game = {
+    w: 1000, h: 700, dpr: 1,
+    running: false, over: false, won: false,
+    time: 0, last: 0, dt: 0, fps: 60, frameMs: 0,
+    quality: "high",
+    debug: false, muted: false, audio: null,
+    score: 0, best: Number(localStorage.getItem("neural_courier_best") || 0),
+    level: 0, progress: 0, levelPause: 0,
+    health: 3, shield: 38, heat: 0, charge: 0,
+    combo: 0, comboTimer: 0,
+    speed: 21,
+    spawnTimer: 0,
+    shotTimer: 0,
+    patchMode: 0,
+    keys: new Set(),
+    pointer: { down: false, active: false, x: 0 },
+    player: {
+      x: 0, tx: 0, y: .28, vy: 0, crouch: 0,
+      z: 7.2, lean: 0, dash: 0, dashCd: 0, inv: 0,
+      anim: 0
+    },
+    entities: [],
+    bullets: [],
+    enemyShots: [],
+    particles: [],
+    blocks: [],
+    lanes: [-3.3, 0, 3.3],
+    upgrades: { tri: 0, rail: 0, magnet: 0, drone: 0 }
+  };
+
+  function audio() {
+    if (game.muted) return null;
+    if (!game.audio) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      game.audio = new AC();
+    }
+    if (game.audio.state === "suspended") game.audio.resume();
+    return game.audio;
+  }
+
+  function beep(freq, dur = .07, type = "sine", gain = .026, sweep = 1) {
+    const ac = audio();
+    if (!ac) return;
+    const osc = ac.createOscillator();
+    const g = ac.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ac.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(35, freq * sweep), ac.currentTime + dur);
+    g.gain.setValueAtTime(.0001, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(gain, ac.currentTime + .008);
+    g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + dur);
+    osc.connect(g).connect(ac.destination);
+    osc.start();
+    osc.stop(ac.currentTime + dur + .02);
+  }
+
+  function chord(root) {
+    beep(root, .12, "triangle", .024, 1.45);
+    setTimeout(() => beep(root * 1.5, .11, "sine", .018, 1.1), 42);
+    setTimeout(() => beep(root * 2.05, .13, "triangle", .016, .9), 80);
+  }
+
+  function resize() {
+    const r = shell.getBoundingClientRect();
+    game.w = Math.max(320, r.width);
+    game.h = Math.max(320, r.height);
+    game.dpr = Math.min(window.devicePixelRatio || 1, game.quality === "high" ? 1.6 : 1.0);
+    canvas.width = Math.floor(game.w * game.dpr);
+    canvas.height = Math.floor(game.h * game.dpr);
+    canvas.style.width = game.w + "px";
+    canvas.style.height = game.h + "px";
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+
+  function draw(mesh, color, pos, scale, rot = [0,0,0], pulse = 0) {
+    const model = M4.compose(pos, rot, scale);
+    const player = game.player;
+    const eye = [player.x * .22, 3.55 + player.y * .22, -8.6];
+    const center = [player.x * .45, 1.25 + player.y * .08, 22];
+    const view = M4.lookAt(eye, center, [0, 1, 0]);
+    const proj = M4.perspective(62 * Math.PI / 180, canvas.width / canvas.height, .1, 260);
+    const mvp = M4.multiply(proj, M4.multiply(view, model));
+
+    gl.uniformMatrix4fv(loc.mvp, false, mvp);
+    gl.uniformMatrix4fv(loc.model, false, model);
+    gl.uniform3fv(loc.color, color);
+    gl.uniform1f(loc.pulse, pulse);
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.buffer);
+    gl.vertexAttribPointer(loc.pos, 3, gl.FLOAT, false, 24, 0);
+    gl.vertexAttribPointer(loc.normal, 3, gl.FLOAT, false, 24, 12);
+    gl.enableVertexAttribArray(loc.pos);
+    gl.enableVertexAttribArray(loc.normal);
+    gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
+  }
+
+  function worldToScreen(x, y, z) {
+    const player = game.player;
+    const model = M4.compose([x,y,z], [0,0,0], [1,1,1]);
+    const eye = [player.x * .22, 3.55 + player.y * .22, -8.6];
+    const center = [player.x * .45, 1.25 + player.y * .08, 22];
+    const view = M4.lookAt(eye, center, [0,1,0]);
+    const proj = M4.perspective(62 * Math.PI / 180, canvas.width / canvas.height, .1, 260);
+    const m = M4.multiply(proj, M4.multiply(view, model));
+    const cx = m[12], cy = m[13], cz = m[14], cw = m[15] || 1;
+    return {
+      x: (cx / cw * .5 + .5) * 1000,
+      y: (-cy / cw * .5 + .5) * 700,
+      visible: cz / cw < 1
+    };
+  }
+
+  function toast(text) {
+    toastEl.textContent = text;
+    toastEl.classList.add("on");
+    clearTimeout(toastEl._t);
+    toastEl._t = setTimeout(() => toastEl.classList.remove("on"), 1500);
+  }
+
+  function comboToast(text) {
+    comboEl.textContent = text;
+    comboEl.classList.remove("show");
+    void comboEl.offsetWidth;
+    comboEl.classList.add("show");
+  }
+
+  function levelMessage(title, body, time = 2200) {
+    levelCard.querySelector("h2").textContent = title;
+    levelCard.querySelector("p").textContent = body;
+    levelCard.classList.add("on");
+    clearTimeout(levelCard._t);
+    levelCard._t = setTimeout(() => levelCard.classList.remove("on"), time);
+  }
+
+  function addScore(n) {
+    const mult = 1 + Math.min(2.6, game.combo * .035);
+    game.score += Math.round(n * mult);
+    game.combo++;
+    game.comboTimer = 2.4;
+    game.charge = clamp(game.charge + 2.4 + game.combo * .11, 0, 100);
+    if (game.combo === 8 || game.combo === 16 || game.combo === 32 || game.combo % 50 === 0) {
+      comboToast(game.combo + "× FLOW");
+      chord(210 + game.combo * 3);
+    }
+  }
+
+  function initBlocks() {
+    game.blocks.length = 0;
+    for (let z = 5; z < 180; z += 8) {
+      for (const side of [-1, 1]) {
+        game.blocks.push({
+          x: side * rand(7.8, 13.5),
+          z,
+          h: rand(2, 11),
+          w: rand(1.1, 2.8),
+          d: rand(2.2, 5.2),
+          phase: rand(0, TAU),
+          color: pick(["#112a4f", "#241247", "#0d3b4b", "#30234f"])
+        });
+      }
+    }
+  }
+
+  function reset() {
+    game.running = true;
+    game.over = false;
+    game.won = false;
+    game.time = 0;
+    game.last = performance.now();
+    game.score = 0;
+    game.level = 0;
+    game.progress = 0;
+    game.levelPause = 1.4;
+    game.health = 3;
+    game.shield = 38;
+    game.heat = 0;
+    game.charge = 0;
+    game.combo = 0;
+    game.comboTimer = 0;
+    game.spawnTimer = .5;
+    game.shotTimer = 0;
+    game.patchMode = 0;
+    game.player.x = 0;
+    game.player.tx = 0;
+    game.player.y = .28;
+    game.player.vy = 0;
+    game.player.crouch = 0;
+    game.player.dash = 0;
+    game.player.dashCd = 0;
+    game.player.inv = 1.1;
+    game.entities.length = 0;
+    game.bullets.length = 0;
+    game.enemyShots.length = 0;
+    game.particles.length = 0;
+    game.upgrades = { tri: 0, rail: 0, magnet: 0, drone: 0 };
+    initBlocks();
+    menu.classList.add("hidden");
+    document.body.classList.remove("patch");
+    levelMessage(levels[0].name, levels[0].objective, 2200);
+    updateHud();
+    requestAnimationFrame(loop);
+  }
+
+  function spawnParticle(x, y, z, color, count = 14, power = 1) {
+    const cap = game.quality === "high" ? count : Math.ceil(count * .55);
+    for (let i = 0; i < cap; i++) {
+      const a = rand(0, TAU);
+      game.particles.push({
+        x, y, z,
+        vx: Math.cos(a) * rand(1, 8) * power,
+        vy: rand(-1, 7) * power,
+        vz: Math.sin(a) * rand(1, 8) * power + rand(-7, 9),
+        life: rand(.3, .95),
+        max: 1,
+        size: rand(.05, .18),
+        color
+      });
+      game.particles[game.particles.length - 1].max = game.particles[game.particles.length - 1].life;
+    }
+  }
+
+  function spawnEntity(kind = null) {
+    const lvl = levels[game.level];
+    const lane = pick(game.lanes);
+    if (!kind) {
+      const r = Math.random();
+      if (lvl.kind === "collect") {
+        kind = r < .44 ? "memory" : r < .65 ? "firewall" : r < .82 ? "drone" : "charge";
+      } else if (lvl.kind === "repair") {
+        kind = r < .38 ? "node" : r < .56 ? "memory" : r < .77 ? "drone" : "firewall";
+      } else if (lvl.kind === "defeat") {
+        kind = r < .48 ? "drone" : r < .68 ? "seeker" : r < .84 ? "firewall" : "upgrade";
+      } else {
+        kind = r < .38 ? "drone" : r < .58 ? "seeker" : r < .74 ? "firewall" : "charge";
+      }
+    }
+    let e = {
+      kind,
+      x: lane + rand(-.35, .35),
+      y: .5,
+      z: rand(125, 155),
+      vx: rand(-.18, .18),
+      vy: 0,
+      hp: 1,
+      maxHp: 1,
+      size: .6,
+      age: 0,
+      spin: rand(-2, 2),
+      cool: rand(.8, 2.2),
+      dead: false,
+      hit: 0
+    };
+    if (kind === "memory") Object.assign(e, { y: rand(.7, 2.4), size: .42, hp: 1, maxHp: 1 });
+    if (kind === "charge") Object.assign(e, { y: rand(.8, 2.2), size: .45 });
+    if (kind === "upgrade") Object.assign(e, { y: rand(.9, 2.3), size: .55 });
+    if (kind === "shield") Object.assign(e, { y: rand(.8, 2.0), size: .50 });
+    if (kind === "firewall") Object.assign(e, { y: .55, size: .9, hp: 99, maxHp: 99, x: lane });
+    if (kind === "drone") Object.assign(e, { y: rand(1.0, 2.9), size: .68, hp: 3, maxHp: 3 });
+    if (kind === "seeker") Object.assign(e, { y: rand(.9, 2.8), size: .72, hp: 4, maxHp: 4 });
+    if (kind === "node") Object.assign(e, { y: rand(.9, 2.6), size: .72, hp: 4, maxHp: 4 });
+    if (kind === "boss") Object.assign(e, { x: 0, y: 2.5, z: 126, size: 2.4, hp: 130, maxHp: 130, cool: .9 });
+    game.entities.push(e);
+  }
+
+  function maybeSpawnBoss() {
+    if (game.level === 3 && !game.entities.some(e => e.kind === "boss")) {
+      spawnEntity("boss");
+      levelMessage("Trend Hydra Online", "Break its cores before the city becomes a copy of itself.", 2600);
+      chord(95);
+    }
+  }
+
+  function shoot(echo = false, angle = 0) {
+    if (!game.running || game.heat > 97 && !echo) return false;
+    const p = game.player;
+    const rail = game.upgrades.rail > 0;
+    game.bullets.push({
+      x: p.x,
+      y: p.y + (p.crouch > .5 ? .8 : 1.25),
+      z: p.z + .8,
+      vx: Math.sin(angle) * 6,
+      vy: 0,
+      vz: rail ? 72 : 58,
+      life: 2.25,
+      damage: rail ? 3 : 1,
+      size: rail ? .16 : .12,
+      color: echo ? "#ffe66b" : rail ? "#ffffff" : "#5bf8ff",
+      pierce: rail ? 4 : 1
+    });
+    if (!echo) {
+      game.heat = clamp(game.heat + (rail ? 6.2 : 4.3), 0, 100);
+      if (game.upgrades.tri > 0) {
+        shoot(true, -.18);
+        shoot(true, .18);
+      }
+      if (game.upgrades.drone > 0) {
+        setTimeout(() => { if (game.running) shoot(true, -.08); }, 80);
+        setTimeout(() => { if (game.running) shoot(true, .08); }, 150);
+      }
+      beep(rail ? 790 : 560, rail ? .052 : .045, rail ? "triangle" : "square", .016, rail ? 1.75 : 1.35);
+    }
+    return true;
+  }
+
+  function realityPatch() {
+    if (!game.running || game.charge < 100) return;
+    game.charge = 0;
+    game.patchMode = 3.0;
+    document.body.classList.add("patch");
+    comboToast("REALITY PATCH");
+    levelMessage("Reality Patch", "Corruption rewritten. Hostiles shattered. Nodes repaired.", 1500);
+    chord(140);
+    setTimeout(() => chord(230), 90);
+    spawnParticle(game.player.x, game.player.y + 1, game.player.z + 4, "#ffffff", 90, 2.1);
+
+    let repaired = 0;
+    for (const e of game.entities) {
+      if (e.kind === "node") {
+        e.dead = true;
+        repaired++;
+        addScore(160);
+        spawnParticle(e.x, e.y, e.z, "#67ffb4", 32, 1.4);
+      } else if (e.kind === "boss") {
+        e.hp -= 22;
+        e.hit = .3;
+        spawnParticle(e.x, e.y, e.z, "#ff4fd8", 70, 1.6);
+        if (e.hp <= 0) kill(e);
+      } else if (["drone", "seeker", "firewall"].includes(e.kind)) {
+        e.dead = true;
+        addScore(80);
+        spawnParticle(e.x, e.y, e.z, "#5bf8ff", 24, 1.2);
+      }
+    }
+    if (levels[game.level].kind === "repair") {
+      game.progress = clamp(game.progress + repaired, 0, levels[game.level].target);
+    }
+    game.enemyShots.length = 0;
+  }
+
+  function dash() {
+    const p = game.player;
+    if (p.dashCd > 0 || !game.running) return;
+    p.dash = .28;
+    p.dashCd = 1.15;
+    p.inv = Math.max(p.inv, .35);
+    spawnParticle(p.x, p.y + .6, p.z, "#5bf8ff", 32, 1.35);
+    beep(250, .08, "sawtooth", .024, 2.1);
+  }
+
+  function hurt(amount = 1) {
+    const p = game.player;
+    if (p.inv > 0 || p.dash > 0) return;
+    if (game.shield > 0) {
+      game.shield = clamp(game.shield - 28 * amount, 0, 100);
+      p.inv = .35;
+      spawnParticle(p.x, p.y + .8, p.z, "#67ffb4", 26, 1.2);
+      beep(170, .1, "sawtooth", .023, 1.7);
+      return;
+    }
+    game.health -= amount;
+    game.combo = 0;
+    game.comboTimer = 0;
+    p.inv = 1.25;
+    document.body.classList.add("hit");
+    setTimeout(() => document.body.classList.remove("hit"), 260);
+    spawnParticle(p.x, p.y + 1, p.z, "#ff3668", 52, 1.55);
+    beep(85, .22, "sawtooth", .045, .42);
+    if (game.health <= 0) endGame(false);
+  }
+
+  function collect(e) {
+    e.dead = true;
+    if (e.kind === "memory") {
+      addScore(70);
+      if (levels[game.level].kind === "collect") game.progress++;
+      spawnParticle(e.x, e.y, e.z, "#5bf8ff", 22, 1);
+      beep(630 + game.combo * 4, .06, "triangle", .018, 1.45);
+    } else if (e.kind === "charge") {
+      addScore(45);
+      game.charge = clamp(game.charge + 26, 0, 100);
+      spawnParticle(e.x, e.y, e.z, "#ffe66b", 26, 1.2);
+      chord(300);
+    } else if (e.kind === "shield") {
+      addScore(50);
+      game.shield = clamp(game.shield + 38, 0, 100);
+      spawnParticle(e.x, e.y, e.z, "#67ffb4", 26, 1.2);
+      chord(250);
+    } else if (e.kind === "upgrade") {
+      addScore(80);
+      const up = pick(["tri", "rail", "magnet", "drone"]);
+      game.upgrades[up] = Math.max(game.upgrades[up], 10);
+      const names = { tri: "Tri Patch", rail: "Rail Patch", magnet: "Memory Magnet", drone: "Helper Drone" };
+      comboToast(names[up].toUpperCase());
+      toast(names[up] + " online.");
+      spawnParticle(e.x, e.y, e.z, "#ff4fd8", 34, 1.35);
+      chord(390);
+    }
+  }
+
+  function kill(e) {
+    if (e.dead) return;
+    e.dead = true;
+    if (e.kind === "boss") {
+      addScore(2200);
+      game.progress = levels[game.level].target;
+      spawnParticle(e.x, e.y, e.z, "#ff4fd8", 130, 2.0);
+      comboToast("HYDRA DELETED");
+      chord(360);
+      return;
+    }
+    addScore(e.kind === "seeker" ? 100 : e.kind === "node" ? 140 : 75);
+    if (levels[game.level].kind === "defeat" && ["drone","seeker"].includes(e.kind)) game.progress++;
+    if (levels[game.level].kind === "repair" && e.kind === "node") game.progress++;
+    spawnParticle(e.x, e.y, e.z, e.kind === "node" ? "#67ffb4" : "#5bf8ff", 28, 1.2);
+    const r = Math.random();
+    if (r < .06) spawnSpecial("upgrade", e.x, e.y, e.z);
+    else if (r < .12) spawnSpecial("shield", e.x, e.y, e.z);
+    else if (r < .20) spawnSpecial("charge", e.x, e.y, e.z);
+  }
+
+  function spawnSpecial(kind, x, y, z) {
+    game.entities.push({
+      kind, x, y, z,
+      vx: 0, vy: 0, hp: 1, maxHp: 1,
+      size: kind === "upgrade" ? .55 : .46,
+      age: 0, spin: rand(-2,2), cool: 0, dead: false, hit: 0
+    });
+  }
+
+  function enemyShot(e) {
+    const p = game.player;
+    const dx = p.x - e.x;
+    const dy = (p.y + 1) - e.y;
+    const dz = p.z - e.z;
+    const l = Math.hypot(dx, dy, dz) || 1;
+    game.enemyShots.push({
+      x: e.x, y: e.y, z: e.z - .7,
+      vx: dx / l * 16,
+      vy: dy / l * 16,
+      vz: dz / l * 32,
+      life: 4,
+      size: e.kind === "boss" ? .22 : .16,
+      color: e.kind === "boss" ? "#ff4fd8" : "#ff3668"
+    });
+  }
+
+  function completeLevel() {
+    if (game.levelPause > 0) return;
+    const lvl = levels[game.level];
+    if (game.progress < lvl.target) return;
+    game.levelPause = 3.2;
+    game.entities.length = 0;
+    game.enemyShots.length = 0;
+    game.bullets.length = 0;
+    if (game.level < levels.length - 1) {
+      const next = levels[game.level + 1];
+      levelMessage("Mission Complete", "Next: " + next.name.replace("Level " + (game.level + 2) + " — ", "") + ". " + next.short + ".", 2800);
+      setTimeout(() => {
+        if (!game.running) return;
+        game.level++;
+        game.progress = 0;
+        game.spawnTimer = .4;
+        levelMessage(levels[game.level].name, levels[game.level].objective, 2500);
+      }, 1800);
+    } else {
+      setTimeout(() => endGame(true), 700);
+    }
+  }
+
+  function endGame(won) {
+    game.running = false;
+    game.over = true;
+    game.won = won;
+    game.best = Math.max(game.best, game.score);
+    localStorage.setItem("neural_courier_best", String(game.best));
+    menu.classList.remove("hidden");
+    menu.querySelector("h1").textContent = won ? "CITY RESTORED" : "CITY COLLAPSED";
+    menu.querySelector(".tagline").innerHTML =
+      `${won ? "You delivered the memories and repaired the AI city." : "The AI city fragmented before the delivery finished."}<br>
+       Final score: <b>${game.score.toLocaleString()}</b><br>
+       Best score: <b>${game.best.toLocaleString()}</b><br><br>
+       This version has levels, a real 3D player, WebGL rendering, missions, shooting, upgrades, and a boss.`;
+    startBtn.textContent = won ? "Run Again" : "Retry Courier Run";
+    updateHud();
+  }
+
+  function updatePlayer(dt) {
+    const p = game.player;
+    let inputX = 0;
+    if (game.keys.has("arrowleft") || game.keys.has("a")) inputX -= 1;
+    if (game.keys.has("arrowright") || game.keys.has("d")) inputX += 1;
+    if (inputX) p.tx = clamp(p.tx + inputX * dt * 7.5, -4.8, 4.8);
+
+    if (game.pointer.active) p.tx = game.pointer.x;
+    p.x = lerp(p.x, p.tx, 1 - Math.pow(.0008, dt));
+    p.lean = lerp(p.lean, clamp((p.tx - p.x) * .35, -.55, .55), .12);
+
+    const grounded = p.y <= .29;
+    if ((game.keys.has("w") || game.keys.has("arrowup")) && grounded) {
+      p.vy = 7.4;
+      beep(240, .08, "triangle", .018, 1.8);
+    }
+    p.crouch = lerp(p.crouch, (game.keys.has("s") || game.keys.has("arrowdown")) && grounded ? 1 : 0, .18);
+    p.vy -= 16 * dt;
+    p.y += p.vy * dt;
+    if (p.y < .28) { p.y = .28; p.vy = 0; }
+
+    p.dash = Math.max(0, p.dash - dt);
+    p.dashCd = Math.max(0, p.dashCd - dt);
+    p.inv = Math.max(0, p.inv - dt);
+    if (game.keys.has("shift")) dash();
+
+    game.shotTimer -= dt;
+    const firing = game.pointer.down || game.keys.has(" ") || game.keys.has("j") || game.keys.has("k");
+    if (firing && game.shotTimer <= 0) {
+      game.shotTimer = game.upgrades.rail > 0 ? .105 : .09;
+      shoot(false, 0);
+    }
+
+    game.heat = clamp(game.heat - dt * (25 + (game.heat > 80 ? 14 : 0)), 0, 100);
+    for (const k of Object.keys(game.upgrades)) game.upgrades[k] = Math.max(0, game.upgrades[k] - dt);
+    p.anim += dt * (grounded ? 7 : 3);
+  }
+
+  function updateWorld(dt) {
+    const lvl = levels[game.level];
+    const dashBoost = game.player.dash > 0 ? 14 : 0;
+    game.speed = 20 + game.level * 3.2 + Math.min(12, game.score / 900) + dashBoost;
+
+    for (const b of game.blocks) {
+      b.z -= game.speed * dt;
+      b.phase += dt;
+      if (b.z < -12) {
+        b.z += 190;
+        b.x = Math.sign(b.x || 1) * rand(7.8, 13.5);
+        b.h = rand(2, 12 + game.level * 2);
+        b.w = rand(1.1, 2.8);
+        b.d = rand(2.2, 5.2);
+        b.color = pick(["#112a4f", "#241247", "#0d3b4b", "#30234f"]);
+      }
+    }
+
+    if (game.levelPause > 0) {
+      game.levelPause = Math.max(0, game.levelPause - dt);
+      return;
+    }
+
+    if (game.level === 3) maybeSpawnBoss();
+    game.spawnTimer -= dt;
+    if (game.spawnTimer <= 0) {
+      game.spawnTimer = lvl.spawn * rand(.58, 1.18);
+      if (!(game.level === 3 && game.entities.some(e => e.kind === "boss") && Math.random() < .35)) spawnEntity();
+    }
+  }
+
+  function updateBullets(dt) {
+    for (const b of game.bullets) {
+      b.life -= dt;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.z += b.vz * dt;
+      if (b.z > 170) b.life = 0;
+      for (const e of game.entities) {
+        if (e.dead || b.life <= 0) continue;
+        if (!["drone","seeker","node","boss"].includes(e.kind)) continue;
+        const dz = Math.abs(b.z - e.z);
+        if (dz > (e.kind === "boss" ? 4.5 : 2.4)) continue;
+        const d = Math.hypot(b.x - e.x, b.y - e.y);
+        if (d < e.size + b.size + .22) {
+          e.hp -= b.damage;
+          e.hit = .14;
+          b.pierce--;
+          spawnParticle(b.x, b.y, b.z, b.color, 8, .7);
+          if (e.hp <= 0) kill(e);
+          if (b.pierce <= 0) b.life = 0;
+        }
+      }
+    }
+    game.bullets = game.bullets.filter(b => b.life > 0);
+  }
+
+  function updateEntities(dt) {
+    const lvl = levels[game.level];
+    const slow = game.patchMode > 0 ? .42 : 1;
+    const p = game.player;
+    for (const e of game.entities) {
+      e.age += dt;
+      e.hit = Math.max(0, e.hit - dt);
+
+      if (["memory","charge","shield","upgrade"].includes(e.kind)) {
+        e.z -= game.speed * dt * slow;
+        if (game.upgrades.magnet > 0 || e.z < 24) {
+          e.x += (p.x - e.x) * dt * 1.9;
+          e.y += (p.y + 1 - e.y) * dt * 1.7;
+        }
+        if (e.z < -6) e.dead = true;
+        if (Math.abs(e.z - p.z) < 1.6 && Math.hypot(e.x - p.x, e.y - (p.y + .9)) < e.size + .9) collect(e);
+        continue;
+      }
+
+      if (e.kind === "firewall") {
+        e.z -= game.speed * dt * slow;
+        if (e.z < -5) e.dead = true;
+        const crouchOK = p.crouch > .65 && e.y > .35;
+        if (Math.abs(e.z - p.z) < 1.8 && Math.abs(e.x - p.x) < 1.05 && p.y < 1.0 && !crouchOK) {
+          e.dead = true;
+          spawnParticle(e.x, e.y, e.z, "#ff3668", 30, 1.2);
+          hurt(1);
+        }
+        continue;
+      }
+
+      if (e.kind === "boss") {
+        e.z = lerp(e.z, 88, dt * .6);
+        e.x = Math.sin(e.age * .72) * 2.8 + Math.sin(e.age * 1.6) * .4;
+        e.y = 2.6 + Math.cos(e.age * .9) * .65;
+        e.cool -= dt;
+        if (e.cool <= 0) {
+          e.cool = Math.max(.42, 1.0 - game.level * .08);
+          for (let i = -2; i <= 2; i++) {
+            game.enemyShots.push({
+              x: e.x + i * .52,
+              y: e.y + Math.sin(e.age + i) * .18,
+              z: e.z - 1,
+              vx: i * .45,
+              vy: -1.2 + Math.abs(i) * .15,
+              vz: -34,
+              life: 4.5,
+              size: .18,
+              color: "#ff4fd8"
+            });
+          }
+          beep(110, .055, "sawtooth", .012, 1.4);
+        }
+        continue;
+      }
+
+      e.z -= (game.speed + (e.kind === "seeker" ? 5 : 2)) * dt * slow;
+      if (e.kind === "seeker" && e.z < 70) {
+        e.x += (p.x - e.x) * dt * .75;
+        e.y += (p.y + 1 - e.y) * dt * .45;
+      } else {
+        e.x += Math.sin(e.age * 1.7 + e.spin) * dt * .75;
+        e.y += Math.cos(e.age * 1.4 + e.spin) * dt * .35;
+      }
+      if (e.kind === "node") {
+        e.x += Math.sin(e.age * 1.2) * dt * .35;
+      }
+      if (["drone","seeker"].includes(e.kind)) {
+        e.cool -= dt;
+        if (e.cool <= 0 && e.z < 80 && e.z > 18) {
+          e.cool = e.kind === "seeker" ? rand(.8, 1.25) : rand(1.2, 2.0);
+          enemyShot(e);
+        }
+      }
+      if (e.z < -7) {
+        e.dead = true;
+        if (e.kind === "node" && lvl.kind === "repair") hurt(1);
+        if (["drone","seeker"].includes(e.kind)) hurt(1);
+      }
+      if (Math.abs(e.z - p.z) < 1.5 && Math.hypot(e.x - p.x, e.y - (p.y + .8)) < e.size + .65) {
+        e.dead = true;
+        spawnParticle(e.x, e.y, e.z, "#ff3668", 26, 1.1);
+        hurt(1);
+      }
+    }
+    game.entities = game.entities.filter(e => !e.dead);
+  }
+
+  function updateEnemyShots(dt) {
+    const p = game.player;
+    for (const s of game.enemyShots) {
+      s.life -= dt;
+      const slow = game.patchMode > 0 ? .45 : 1;
+      s.x += s.vx * dt * slow;
+      s.y += s.vy * dt * slow;
+      s.z += s.vz * dt * slow;
+      if (s.z < -6 || s.z > 150) s.life = 0;
+      if (Math.abs(s.z - p.z) < .9 && Math.hypot(s.x - p.x, s.y - (p.y + .9)) < s.size + .62) {
+        s.life = 0;
+        spawnParticle(s.x, s.y, s.z, s.color, 16, 1);
+        hurt(1);
+      }
+    }
+    game.enemyShots = game.enemyShots.filter(s => s.life > 0);
+  }
+
+  function updateParticles(dt) {
+    for (const p of game.particles) {
+      p.life -= dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.z += p.vz * dt;
+      p.vx *= Math.pow(.18, dt);
+      p.vy = p.vy * Math.pow(.2, dt) - 2.4 * dt;
+      p.vz *= Math.pow(.18, dt);
+    }
+    game.particles = game.particles.filter(p => p.life > 0 && p.z > -10 && p.z < 180);
+  }
+
+  function updateSystems(dt) {
+    game.comboTimer = Math.max(0, game.comboTimer - dt);
+    if (game.comboTimer <= 0 && game.combo > 0) game.combo = Math.max(0, game.combo - dt * 7);
+    game.patchMode = Math.max(0, game.patchMode - dt);
+    if (game.patchMode <= 0) document.body.classList.remove("patch");
+    completeLevel();
+  }
+
+  function update(dt) {
+    const safe = Math.min(.034, dt);
+    updatePlayer(safe);
+    updateWorld(safe);
+    updateBullets(safe);
+    updateEntities(safe);
+    updateEnemyShots(safe);
+    updateParticles(safe);
+    updateSystems(safe);
+  }
+
+  function drawRoad() {
+    const lvl = levels[game.level];
+    const theme = lvl.theme.map(rgb);
+    for (let z = -5; z < 170; z += 7) {
+      const shift = ((game.time * .001 * game.speed) % 7);
+      const zz = z - shift;
+      draw(meshes.cube, rgb("#101631"), [0, -.08, zz], [7.8, .08, 3.2], [0, 0, 0], 0);
+      draw(meshes.cube, theme[0], [-1.65, .02, zz], [.045, .04, 2.1], [0,0,0], .03);
+      draw(meshes.cube, theme[1], [1.65, .02, zz], [.045, .04, 2.1], [0,0,0], .03);
+    }
+    for (let x of [-4.05, 4.05]) {
+      draw(meshes.cube, theme[2], [x, .16, 80], [.11, .22, 175], [0,0,0], .02);
+    }
+  }
+
+  function drawBlocks() {
+    for (const b of game.blocks) {
+      const c = rgb(b.color);
+      const pulse = Math.sin(game.time * .002 + b.phase) * .025;
+      draw(meshes.cube, c, [b.x, b.h/2 - .08, b.z], [b.w, b.h, b.d], [0, 0, 0], pulse);
+      if (game.quality === "high" && b.h > 4) {
+        draw(meshes.cube, rgb("#5bf8ff"), [b.x, b.h + .3, b.z], [b.w*.55, .05, b.d*.55], [0,0,0], .04);
+      }
+    }
+  }
+
+  function drawHuman() {
+    const p = game.player;
+    const x = p.x, y = p.y, z = p.z;
+    const lean = p.lean + (p.dash > 0 ? .28 * Math.sign(p.tx - p.x || 1) : 0);
+    const crouch = p.crouch;
+    const bob = Math.sin(p.anim) * .035;
+    const armSwing = Math.sin(p.anim * 1.2) * .18;
+    const legSwing = Math.sin(p.anim * 1.1) * .18;
+    const pulse = p.inv > 0 && Math.sin(game.time * .04) > 0 ? .18 : 0;
+
+    draw(meshes.cube, rgb("#0f1736"), [x, y + .08, z], [1.25, .16, 1.72], [0, lean, 0], .02);
+    draw(meshes.cube, rgb("#5bf8ff"), [x, y + .17, z + .22], [1.0, .05, 1.12], [0, lean, 0], .06);
+
+    const bodyY = y + .86 - crouch * .28 + bob;
+    draw(meshes.cube, rgb("#1e2c55"), [x, bodyY, z], [.52, .92 - crouch*.18, .34], [0, lean, 0], pulse);
+    draw(meshes.cube, rgb("#ff4fd8"), [x, bodyY + .12, z - .18], [.42, .18, .06], [0, lean, 0], .05);
+
+    draw(meshes.cube, rgb("#d8f8ff"), [x, bodyY + .70 - crouch*.1, z], [.38, .38, .38], [0, lean, 0], pulse);
+    draw(meshes.cube, rgb("#11182f"), [x, bodyY + .78 - crouch*.1, z + .08], [.42, .12, .25], [0, lean, 0], .02);
+
+    draw(meshes.cube, rgb("#79e7ff"), [x - .42, bodyY + .12, z + .02], [.15, .64, .16], [armSwing, 0, -.25 + lean], pulse);
+    draw(meshes.cube, rgb("#79e7ff"), [x + .42, bodyY + .12, z + .02], [.15, .64, .16], [-armSwing, 0, .25 + lean], pulse);
+    draw(meshes.cube, rgb("#263869"), [x - .18, y + .44, z + .18], [.16, .56, .15], [legSwing + crouch*.5, 0, -.08], pulse);
+    draw(meshes.cube, rgb("#263869"), [x + .18, y + .44, z + .18], [.16, .56, .15], [-legSwing + crouch*.5, 0, .08], pulse);
+  }
+
+  function drawDrone(e) {
+    const color = e.kind === "seeker" ? "#ffe66b" : "#5bf8ff";
+    draw(meshes.oct, rgb(color), [e.x, e.y, e.z], [e.size, e.size, e.size], [e.age, e.age*.8, e.age*e.spin], e.hit ? .22 : .03);
+    draw(meshes.cube, rgb("#ffffff"), [e.x - e.size*.88, e.y, e.z], [e.size*.52, .08, .2], [0, e.age*3, 0], .02);
+    draw(meshes.cube, rgb("#ffffff"), [e.x + e.size*.88, e.y, e.z], [e.size*.52, .08, .2], [0, -e.age*3, 0], .02);
+  }
+
+  function drawBoss(e) {
+    const corePulse = .05 + Math.sin(e.age * 5) * .04 + (e.hit ? .2 : 0);
+    draw(meshes.oct, rgb("#ff4fd8"), [e.x, e.y, e.z], [e.size, e.size*.78, e.size], [e.age*.3, e.age*.7, e.age*.45], corePulse);
+    draw(meshes.oct, rgb("#ffe66b"), [e.x, e.y, e.z + .2], [e.size*.55, e.size*.48, e.size*.55], [-e.age*.9, e.age*.3, e.age*.7], .08);
+    for (let i = 0; i < 6; i++) {
+      const a = e.age * .9 + i * TAU / 6;
+      const hx = e.x + Math.cos(a) * 2.8;
+      const hy = e.y + Math.sin(a) * 1.25;
+      const hz = e.z + Math.sin(a*2) * .5;
+      draw(meshes.pyramid, rgb(i % 2 ? "#5bf8ff" : "#ff4fd8"), [hx, hy, hz], [.7,.7,.7], [e.age, a, e.age*.5], .05);
+      draw(meshes.cube, rgb("#ffffff"), [(e.x+hx)/2, (e.y+hy)/2, (e.z+hz)/2], [.06,.06,Math.hypot(hx-e.x, hz-e.z)], [0, a, 0], .015);
+    }
+  }
+
+  function drawEntity(e) {
+    if (e.kind === "memory") {
+      draw(meshes.oct, rgb("#5bf8ff"), [e.x,e.y,e.z], [e.size,e.size,e.size], [e.age*1.5,e.age*.8,e.age*1.1], .08);
+      return;
+    }
+    if (e.kind === "charge") {
+      draw(meshes.pyramid, rgb("#ffe66b"), [e.x,e.y,e.z], [e.size,e.size,e.size], [e.age,e.age*1.3,e.age*.7], .08);
+      return;
+    }
+    if (e.kind === "shield") {
+      draw(meshes.oct, rgb("#67ffb4"), [e.x,e.y,e.z], [e.size,e.size,e.size], [e.age*.8,e.age*1.2,e.age], .08);
+      return;
+    }
+    if (e.kind === "upgrade") {
+      draw(meshes.cube, rgb("#ff4fd8"), [e.x,e.y,e.z], [e.size,e.size,e.size], [e.age,e.age*.8,e.age*1.2], .08);
+      draw(meshes.oct, rgb("#ffffff"), [e.x,e.y,e.z], [e.size*.45,e.size*.45,e.size*.45], [-e.age,e.age,e.age], .05);
+      return;
+    }
+    if (e.kind === "firewall") {
+      draw(meshes.cube, rgb("#ff3668"), [e.x,.85,e.z], [1.85,1.58,.28], [0,0,0], .05);
+      draw(meshes.cube, rgb("#ffffff"), [e.x,.15,e.z+.02], [1.5,.06,.34], [0,0,0], .02);
+      return;
+    }
+    if (e.kind === "node") {
+      draw(meshes.oct, rgb("#67ffb4"), [e.x,e.y,e.z], [e.size,e.size,e.size], [e.age*.6,e.age*1.2,e.age], e.hit ? .22 : .04);
+      draw(meshes.cube, rgb("#ff4fd8"), [e.x,e.y,e.z], [e.size*.42,e.size*.42,e.size*.42], [-e.age,e.age*.6,e.age*.8], .04);
+      return;
+    }
+    if (e.kind === "boss") {
+      drawBoss(e);
+      return;
+    }
+    drawDrone(e);
+  }
+
+  function drawProjectiles() {
+    for (const b of game.bullets) {
+      draw(meshes.cube, rgb(b.color), [b.x,b.y,b.z], [b.size,b.size,b.size*3.6], [0,0,0], .08);
+    }
+    for (const s of game.enemyShots) {
+      draw(meshes.oct, rgb(s.color), [s.x,s.y,s.z], [s.size,s.size,s.size], [game.time*.006,0,game.time*.004], .08);
+    }
+  }
+
+  function drawParticles() {
+    for (const p of game.particles) {
+      const t = clamp(p.life / p.max, 0, 1);
+      draw(meshes.cube, rgb(p.color), [p.x,p.y,p.z], [p.size*t,p.size*t,p.size*t], [p.life*3,p.life*2,0], .05);
+    }
+  }
+
+  function render() {
+    const lvl = levels[game.level] || levels[0];
+    gl.clearColor(lvl.clear[0], lvl.clear[1], lvl.clear[2], 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.uniform3fv(loc.fog, rgb(lvl.fog));
+
+    drawRoad();
+    drawBlocks();
+
+    const sorted = game.entities.slice().sort((a,b) => b.z - a.z);
+    for (const e of sorted) drawEntity(e);
+    drawProjectiles();
+    drawParticles();
+    drawHuman();
+    drawSvgFx();
+  }
+
+  function drawSvgFx() {
+    const lvl = levels[game.level] || levels[0];
+    const chargeReady = game.charge >= 100;
+    const playerScreen = worldToScreen(game.player.x, game.player.y + 1.05, game.player.z);
+    let bossHud = "";
+    const boss = game.entities.find(e => e.kind === "boss");
+    if (boss) {
+      const hp = clamp(boss.hp / boss.maxHp, 0, 1);
+      bossHud = `
+        <rect x="335" y="104" width="330" height="9" rx="4.5" fill="rgba(0,0,0,.4)" stroke="rgba(255,255,255,.18)"/>
+        <rect x="337" y="106" width="${326*hp}" height="5" rx="2.5" fill="#ff4fd8"/>
+        <text x="500" y="96" fill="#fff" text-anchor="middle" font-size="13" font-weight="900" letter-spacing="4">TREND HYDRA</text>
+      `;
+    }
+    svgFx.innerHTML = `
+      <defs>
+        <filter id="hudGlow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <linearGradient id="beam" x1="0" x2="1">
+          <stop offset="0" stop-color="${lvl.theme[0]}" stop-opacity="0"/>
+          <stop offset=".5" stop-color="${chargeReady ? "#ffffff" : lvl.theme[0]}" stop-opacity="${chargeReady ? ".75" : ".35"}"/>
+          <stop offset="1" stop-color="${lvl.theme[1]}" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="M ${playerScreen.x.toFixed(1)} ${playerScreen.y.toFixed(1)}
+               C ${(playerScreen.x-150).toFixed(1)} ${(playerScreen.y+90).toFixed(1)},
+                 ${(playerScreen.x+150).toFixed(1)} ${(playerScreen.y+90).toFixed(1)},
+                 ${playerScreen.x.toFixed(1)} ${(playerScreen.y+160).toFixed(1)}"
+            fill="none" stroke="url(#beam)" stroke-width="${chargeReady ? 3 : 1.5}" filter="url(#hudGlow)" opacity="${chargeReady ? .95 : .48}"/>
+      <circle cx="${playerScreen.x.toFixed(1)}" cy="${playerScreen.y.toFixed(1)}" r="${chargeReady ? 24 : 15}" fill="none" stroke="${chargeReady ? "#ffffff" : "rgba(91,248,255,.42)"}" stroke-width="2" filter="url(#hudGlow)"/>
+      ${game.patchMode > 0 ? `<circle cx="500" cy="350" r="${(1-game.patchMode/3)*520}" fill="none" stroke="#fff" stroke-width="4" opacity="${game.patchMode/3}" filter="url(#hudGlow)"/>` : ""}
+      ${bossHud}
+    `;
+  }
+
+  function updateHud() {
+    const lvl = levels[game.level] || levels[0];
+    scoreEl.textContent = game.score.toLocaleString();
+    let rank = ranks[0][1];
+    for (const [score, name] of ranks) if (game.score >= score) rank = name;
+    rankEl.textContent = `${rank} · Best ${game.best.toLocaleString()}`;
+    missionEl.textContent = `${lvl.short}: ${game.progress}/${lvl.target}`;
+    heatBar.style.width = `${game.heat}%`;
+    chargeBar.style.width = `${game.charge}%`;
+    shieldBar.style.width = `${game.shield}%`;
+    heatWrap.classList.toggle("hot", game.heat > 84);
+
+    livesEl.innerHTML = "";
+    for (let i=0; i<3; i++) {
+      const el = document.createElement("i");
+      el.className = "life" + (i < game.health ? " on" : "");
+      livesEl.appendChild(el);
+    }
+    if (game.debug) {
+      debugEl.textContent =
+        `FPS: ${game.fps.toFixed(0)}
+frame: ${game.frameMs.toFixed(2)}ms
+quality: ${game.quality}
+level: ${game.level+1}
+progress: ${game.progress}/${lvl.target}
+entities: ${game.entities.length}
+bullets: ${game.bullets.length}
+shots: ${game.enemyShots.length}
+particles: ${game.particles.length}
+heat: ${game.heat.toFixed(0)}
+charge: ${game.charge.toFixed(0)}
+shield: ${game.shield.toFixed(0)}
+upgrades: ${Object.entries(game.upgrades).filter(x=>x[1]>0).map(x=>x[0]+":"+x[1].toFixed(0)).join(" ") || "none"}`;
+    }
+  }
+
+  let fpsT = 0, fpsN = 0;
+  function loop(now) {
+    if (!game.running) return;
+    const t0 = performance.now();
+    const dt = Math.min(.05, (now - game.last) / 1000 || .016);
+    game.last = now;
+    game.time += dt * 1000;
+    game.dt = dt;
+    update(dt);
+    render();
+    updateHud();
+
+    fpsT += dt;
+    fpsN++;
+    if (fpsT >= .5) {
+      game.fps = fpsN / fpsT;
+      fpsT = 0; fpsN = 0;
+      if (game.fps < 38 && game.quality === "high") {
+        game.quality = "low";
+        resize();
+        toast("Auto performance mode enabled.");
+      }
+    }
+    game.frameMs = performance.now() - t0;
+    requestAnimationFrame(loop);
+  }
+
+  function idle(now) {
+    if (!game.running) {
+      game.time += 16;
+      gl.clearColor(.015,.015,.05,1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.uniform3fv(loc.fog, rgb("#0b1638"));
+      if (game.blocks.length === 0) initBlocks();
+      for (const b of game.blocks) {
+        b.z -= .18;
+        if (b.z < -12) b.z += 190;
+      }
+      drawRoad();
+      drawBlocks();
+      drawHuman();
+      drawSvgFx();
+    }
+    requestAnimationFrame(idle);
+  }
+
+  function pointerWorld(ev) {
+    const rect = shell.getBoundingClientRect();
+    const t = ev.touches && ev.touches[0] ? ev.touches[0] : ev;
+    const sx = (t.clientX - rect.left) / rect.width;
+    game.pointer.x = clamp((sx - .5) * 11, -5, 5);
+    game.pointer.active = true;
+  }
+
+  function bind() {
+    window.addEventListener("resize", resize);
+    canvas.addEventListener("pointermove", pointerWorld);
+    canvas.addEventListener("pointerdown", ev => {
+      pointerWorld(ev);
+      game.pointer.down = true;
+      audio();
+      shoot(false, 0);
+    });
+    window.addEventListener("pointerup", () => { game.pointer.down = false; });
+    canvas.addEventListener("touchstart", ev => {
+      pointerWorld(ev);
+      game.pointer.down = true;
+      ev.preventDefault();
+    }, { passive:false });
+    canvas.addEventListener("touchmove", ev => {
+      pointerWorld(ev);
+      ev.preventDefault();
+    }, { passive:false });
+    canvas.addEventListener("contextmenu", ev => ev.preventDefault());
+
+    window.addEventListener("keydown", ev => {
+      const k = ev.key.toLowerCase();
+      if (["arrowleft","arrowright","arrowup","arrowdown"," ","shift"].includes(k)) ev.preventDefault();
+      game.keys.add(k);
+      if (k === "e" || k === "q") realityPatch();
+      if (k === "m") {
+        game.muted = !game.muted;
+        toast(game.muted ? "Sound muted." : "Sound unmuted.");
+      }
+      if (k === "f3" || k === "`") {
+        ev.preventDefault();
+        game.debug = !game.debug;
+        debugEl.classList.toggle("on", game.debug);
+      }
+      if (k === "l") {
+        game.quality = game.quality === "high" ? "low" : "high";
+        resize();
+        toast("Quality: " + game.quality);
+      }
+    });
+    window.addEventListener("keyup", ev => game.keys.delete(ev.key.toLowerCase()));
+
+    startBtn.addEventListener("click", () => {
+      menu.querySelector("h1").textContent = "NEURAL COURIER 3D";
+      menu.querySelector(".tagline").textContent =
+        "A modern WebGL game: you are a human courier on a hoverboard inside a living AI city. Collect memories, repair corrupted nodes, fight security drones, and defeat the Trend Hydra boss. No libraries, no build step, just one powerful browser file.";
+      startBtn.textContent = "Start Courier Run";
+      audio();
+      reset();
+    });
+  }
+
+  resize();
+  initBlocks();
+  bind();
+  updateHud();
+  requestAnimationFrame(idle);
+})();
+</script>
+</body>
+</html>

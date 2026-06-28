@@ -1,0 +1,87 @@
+NEURAL COURIER 3D SOURCE-AVAILABLE RESTRICTED LICENSE
+Version 1.0 — 2026-06-28
+
+Copyright (c) 2026 AASoftIR / Alireza Mohebbi.
+All rights reserved.
+
+This project, including its source code, game design, artwork concepts, documentation,
+text, visual style, and related materials, is provided under the following restricted
+source-available terms.
+
+1. DEFINITIONS
+
+"Project" means the NEURAL COURIER 3D game and all files in this repository.
+
+"Author" means AASoftIR / Alireza Mohebbi, unless another copyright holder is explicitly
+listed for a specific file.
+
+"Use" means copying, modifying, publishing, distributing, sublicensing, selling, hosting,
+embedding, deploying, creating derivative works from, or otherwise exploiting the Project.
+
+2. LIMITED PERMISSION
+
+You are allowed to:
+
+a. View and read the Project source code.
+b. Play the Project through an official hosted page controlled by the Author.
+c. Clone or download the Project for private personal review only.
+d. Learn from general programming techniques used in the Project, provided that you do
+   not copy protected expression, game assets, text, structure, distinctive visual style,
+   or substantial portions of the implementation.
+
+3. RESTRICTIONS
+
+Without prior written permission from the Author, you may not:
+
+a. Redistribute the Project or substantial portions of it.
+b. Publish copies or modified copies of the Project.
+c. Use the Project commercially.
+d. Sell, rent, lease, sublicense, or provide the Project as a service.
+e. Host a public copy or derivative version of the Project.
+f. Include the Project in another product, template, course, asset pack, website, game,
+   marketplace item, or repository.
+g. Remove or alter copyright, license, author, or attribution notices.
+h. Claim authorship or ownership of the Project.
+i. Use the Project to train, fine-tune, evaluate, or populate datasets for machine
+   learning or generative AI systems without written permission.
+j. Use the Project name, branding, or distinctive game identity in a confusingly similar
+   project.
+
+4. CONTRIBUTIONS
+
+Unless a separate written agreement says otherwise, any contribution submitted to the
+Project grants the Author a perpetual, worldwide, royalty-free right to use, modify,
+publish, and distribute that contribution as part of the Project.
+
+Submitting a contribution does not give the contributor ownership of the Project or
+permission to redistribute the Project independently.
+
+5. NO OPEN SOURCE GRANT
+
+This license is intentionally not an open source license.
+
+No rights are granted except those explicitly stated in Section 2.
+
+6. TERMINATION
+
+Any violation of this license automatically terminates your permission to access, clone,
+use, or keep copies of the Project. Upon termination, you must delete all copies of the
+Project in your possession or control.
+
+7. WARRANTY DISCLAIMER
+
+THE PROJECT IS PROVIDED "AS IS", WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, TITLE, AND NON-INFRINGEMENT.
+
+8. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE AUTHOR SHALL NOT BE LIABLE FOR ANY CLAIM,
+DAMAGES, OR OTHER LIABILITY ARISING FROM OR RELATED TO THE PROJECT OR ITS USE.
+
+9. PERMISSION REQUESTS
+
+For permission requests, contact the Author through the official repository owner profile
+or an explicitly published contact channel.
+
+END OF LICENSE
